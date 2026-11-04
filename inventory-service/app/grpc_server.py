@@ -6,7 +6,7 @@ import grpc
 from inventory.v1 import inventory_pb2
 from inventory.v1 import inventory_pb2_grpc
 
-from app.inventory import reserve_stock, release_reservation
+from app.inventory import release_reservation, reserve_stock
 
 
 class InventoryService(
@@ -29,12 +29,18 @@ class InventoryService(
             items,
         )
 
+        if result["status"] == "INTERNAL_ERROR":
+            context.abort(
+                grpc.StatusCode.UNAVAILABLE,
+                "Inventory storage is temporarily unavailable",
+            )
+
         status_map = {
-    "RESERVED": inventory_pb2.RESERVED,
-    "INSUFFICIENT_STOCK": inventory_pb2.INSUFFICIENT_STOCK,
-    "INVALID_REQUEST": inventory_pb2.INVALID_REQUEST,
-    "INTERNAL_ERROR": inventory_pb2.INTERNAL_ERROR,
-}
+            "RESERVED": inventory_pb2.RESERVED,
+            "INSUFFICIENT_STOCK": inventory_pb2.INSUFFICIENT_STOCK,
+            "INVALID_REQUEST": inventory_pb2.INVALID_REQUEST,
+            "INTERNAL_ERROR": inventory_pb2.INTERNAL_ERROR,
+        }
 
         return inventory_pb2.ReserveStockResponse(
             success=result["success"],
@@ -45,9 +51,13 @@ class InventoryService(
 
     def ReleaseReservation(self, request, context):
 
-        result = release_reservation(
-            request.reservation_id
-        )
+        result = release_reservation(request.reservation_id)
+
+        if not result["success"]:
+            context.abort(
+                grpc.StatusCode.UNAVAILABLE,
+                "Inventory storage is temporarily unavailable",
+            )
 
         return inventory_pb2.ReleaseReservationResponse(
             success=result["success"],

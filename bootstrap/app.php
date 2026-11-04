@@ -2,6 +2,8 @@
 
 use App\Shared\Http\Middleware\RoleMiddleware;
 use App\Shared\Http\Middleware\SecurityHeaders;
+use App\Shared\Inventory\Exceptions\InventoryReservationRejectedException;
+use App\Shared\Inventory\Exceptions\InventoryServiceUnavailableException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -27,6 +29,20 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (Throwable $e, Request $request) {
             if (! $request->is('api/*')) {
                 return null;
+            }
+
+            if ($e instanceof InventoryReservationRejectedException) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'errors' => ['inventory' => [$e->getMessage()]],
+                ], 422);
+            }
+
+            if ($e instanceof InventoryServiceUnavailableException) {
+                return response()->json([
+                    'message' => 'Inventory service is temporarily unavailable. Please try again shortly.',
+                    'errors' => null,
+                ], 503);
             }
 
             if ($e instanceof ValidationException) {

@@ -13,6 +13,7 @@ class OrderResource extends JsonResource
             'id' => $this->id,
             'user_id' => $this->user_id,
             'status' => $this->status,
+            'inventory_reservation_id' => $this->inventory_reservation_id,
             'total' => $this->total,
             'created_at' => $this->created_at,
             'items' => $this->items->map(fn ($item) => [

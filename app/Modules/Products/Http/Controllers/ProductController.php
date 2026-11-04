@@ -6,13 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Modules\Products\Http\Requests\StoreProductRequest;
 use App\Modules\Products\Http\Resources\ProductResource;
 use App\Modules\Products\Models\Product;
+use App\Shared\Notifications\Contracts\CustomerRecipientProvider;
 use Illuminate\Http\Request;
-use App\Models\User;
 use App\Notifications\ProductCreatedNotification;
 use Illuminate\Support\Facades\Notification;
 
 class ProductController extends Controller
 {
+    public function __construct(
+        private CustomerRecipientProvider $recipients,
+    ) {
+    }
+
     public function index(Request $request)
     {
         $products = Product::with('category')
@@ -36,8 +41,10 @@ class ProductController extends Controller
         $product = Product::create($data);
 
         
-        $users = User::where('role', 'user')->get();
-        Notification::send($users, new ProductCreatedNotification($product));
+        Notification::send(
+            $this->recipients->customers(),
+            new ProductCreatedNotification($product),
+        );
 
         return (new ProductResource($product->load('category')))
             ->response()

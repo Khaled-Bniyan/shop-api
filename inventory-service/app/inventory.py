@@ -167,8 +167,8 @@ def reserve_stock(reservation_id: str, items: list):
                 if len(products_by_id) != len(product_ids):
                     return {
                         "success": False,
-                        "status": "INVALID_REQUEST",
-                        "message": "One or more products do not exist",
+                        "status": "INSUFFICIENT_STOCK",
+                        "message": "One or more products have no available stock",
                         "reservation_id": reservation_id,
                     }
 
