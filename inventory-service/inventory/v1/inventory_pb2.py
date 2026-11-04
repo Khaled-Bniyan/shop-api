@@ -24,15 +24,15 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1cinventory/v1/inventory.proto\x12\x0cinventory.v1\"7\n\x0fReservationItem\x12\x12\n\nproduct_id\x18\x01 \x01(\x03\x12\x10\n\x08quantity\x18\x02 \x01(\x05\"[\n\x13ReserveStockRequest\x12\x16\n\x0ereservation_id\x18\x01 \x01(\t\x12,\n\x05items\x18\x02 \x03(\x0b\x32\x1d.inventory.v1.ReservationItem\"\x81\x01\n\x14ReserveStockResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12/\n\x06status\x18\x02 \x01(\x0e\x32\x1f.inventory.v1.ReservationStatus\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\x16\n\x0ereservation_id\x18\x04 \x01(\t\"3\n\x19ReleaseReservationRequest\x12\x16\n\x0ereservation_id\x18\x01 \x01(\t\">\n\x1aReleaseReservationResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t*r\n\x11ReservationStatus\x12\"\n\x1eRESERVATION_STATUS_UNSPECIFIED\x10\x00\x12\x0c\n\x08RESERVED\x10\x01\x12\x16\n\x12INSUFFICIENT_STOCK\x10\x02\x12\x13\n\x0fINVALID_REQUEST\x10\x03\x32\xd2\x01\n\x10InventoryService\x12U\n\x0cReserveStock\x12!.inventory.v1.ReserveStockRequest\x1a\".inventory.v1.ReserveStockResponse\x12g\n\x12ReleaseReservation\x12\'.inventory.v1.ReleaseReservationRequest\x1a(.inventory.v1.ReleaseReservationResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1cinventory/v1/inventory.proto\x12\x0cinventory.v1\"7\n\x0fReservationItem\x12\x12\n\nproduct_id\x18\x01 \x01(\x03\x12\x10\n\x08quantity\x18\x02 \x01(\x05\"[\n\x13ReserveStockRequest\x12\x16\n\x0ereservation_id\x18\x01 \x01(\t\x12,\n\x05items\x18\x02 \x03(\x0b\x32\x1d.inventory.v1.ReservationItem\"\x81\x01\n\x14ReserveStockResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12/\n\x06status\x18\x02 \x01(\x0e\x32\x1f.inventory.v1.ReservationStatus\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\x16\n\x0ereservation_id\x18\x04 \x01(\t\"3\n\x19ReleaseReservationRequest\x12\x16\n\x0ereservation_id\x18\x01 \x01(\t\">\n\x1aReleaseReservationResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t*\x86\x01\n\x11ReservationStatus\x12\"\n\x1eRESERVATION_STATUS_UNSPECIFIED\x10\x00\x12\x0c\n\x08RESERVED\x10\x01\x12\x16\n\x12INSUFFICIENT_STOCK\x10\x02\x12\x13\n\x0fINVALID_REQUEST\x10\x03\x12\x12\n\x0eINTERNAL_ERROR\x10\x04\x32\xd2\x01\n\x10InventoryService\x12U\n\x0cReserveStock\x12!.inventory.v1.ReserveStockRequest\x1a\".inventory.v1.ReserveStockResponse\x12g\n\x12ReleaseReservation\x12\'.inventory.v1.ReleaseReservationRequest\x1a(.inventory.v1.ReleaseReservationResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'inventory.v1.inventory_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_RESERVATIONSTATUS']._serialized_start=445
-  _globals['_RESERVATIONSTATUS']._serialized_end=559
+  _globals['_RESERVATIONSTATUS']._serialized_start=446
+  _globals['_RESERVATIONSTATUS']._serialized_end=580
   _globals['_RESERVATIONITEM']._serialized_start=46
   _globals['_RESERVATIONITEM']._serialized_end=101
   _globals['_RESERVESTOCKREQUEST']._serialized_start=103
@@ -43,6 +43,6 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_RELEASERESERVATIONREQUEST']._serialized_end=379
   _globals['_RELEASERESERVATIONRESPONSE']._serialized_start=381
   _globals['_RELEASERESERVATIONRESPONSE']._serialized_end=443
-  _globals['_INVENTORYSERVICE']._serialized_start=562
-  _globals['_INVENTORYSERVICE']._serialized_end=772
+  _globals['_INVENTORYSERVICE']._serialized_start=583
+  _globals['_INVENTORYSERVICE']._serialized_end=793
 # @@protoc_insertion_point(module_scope)

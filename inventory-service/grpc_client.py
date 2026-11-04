@@ -12,10 +12,8 @@ def main():
     try:
         stub = inventory_pb2_grpc.InventoryServiceStub(channel)
 
-        # إنشاء رقم فريد للحجز
         reservation_id = f"grpc-test-{uuid.uuid4()}"
 
-        # إرسال طلب حجز المنتج رقم 1
         request = inventory_pb2.ReserveStockRequest(
             reservation_id=reservation_id,
             items=[
@@ -26,26 +24,44 @@ def main():
             ],
         )
 
-        response = stub.ReserveStock(request, timeout=5)
+        # Reserve stock with a 5-second timeout.
+        try:
+            response = stub.ReserveStock(request, timeout=5)
+
+        except grpc.RpcError as error:
+            print("Reservation request failed")
+            print("gRPC Status:", error.code())
+            print("Details:", error.details())
+            return
 
         print("\n--- ReserveStock Response ---")
         print(f"Success: {response.success}")
-        print(f"Status: {inventory_pb2.ReservationStatus.Name(response.status)}")
+        print(
+            "Status:",
+            inventory_pb2.ReservationStatus.Name(response.status),
+        )
         print(f"Message: {response.message}")
         print(f"Reservation ID: {response.reservation_id}")
 
         if not response.success:
             return
 
-        # إرسال طلب إلغاء الحجز
         release_request = inventory_pb2.ReleaseReservationRequest(
             reservation_id=reservation_id
         )
 
-        release_response = stub.ReleaseReservation(
-            release_request,
-            timeout=5,
-        )
+        # Release stock with a 5-second timeout.
+        try:
+            release_response = stub.ReleaseReservation(
+                release_request,
+                timeout=5,
+            )
+
+        except grpc.RpcError as error:
+            print("\nRelease request failed")
+            print("gRPC Status:", error.code())
+            print("Details:", error.details())
+            return
 
         print("\n--- ReleaseReservation Response ---")
         print(f"Success: {release_response.success}")

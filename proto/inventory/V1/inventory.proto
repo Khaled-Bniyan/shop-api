@@ -41,6 +41,7 @@ enum ReservationStatus {
   RESERVED = 1;
   INSUFFICIENT_STOCK = 2;
   INVALID_REQUEST = 3;
+  INTERNAL_ERROR = 4;
 }
 
 // طلب إلغاء الحجز

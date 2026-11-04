@@ -30,10 +30,11 @@ class InventoryService(
         )
 
         status_map = {
-            "RESERVED": inventory_pb2.RESERVED,
-            "INSUFFICIENT_STOCK": inventory_pb2.INSUFFICIENT_STOCK,
-            "INVALID_REQUEST": inventory_pb2.INVALID_REQUEST,
-        }
+    "RESERVED": inventory_pb2.RESERVED,
+    "INSUFFICIENT_STOCK": inventory_pb2.INSUFFICIENT_STOCK,
+    "INVALID_REQUEST": inventory_pb2.INVALID_REQUEST,
+    "INTERNAL_ERROR": inventory_pb2.INTERNAL_ERROR,
+}
 
         return inventory_pb2.ReserveStockResponse(
             success=result["success"],
