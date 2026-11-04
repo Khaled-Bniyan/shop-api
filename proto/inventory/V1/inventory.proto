@@ -1,0 +1,55 @@
+
+syntax = "proto3";
+
+package inventory.v1;
+
+// خدمة إدارة المخزون
+service InventoryService {
+
+  // حجز جميع المنتجات في عملية واحدة
+  rpc ReserveStock(ReserveStockRequest)
+      returns (ReserveStockResponse);
+
+  // إلغاء حجز سابق عند الحاجة
+  rpc ReleaseReservation(ReleaseReservationRequest)
+      returns (ReleaseReservationResponse);
+}
+
+// منتج واحد ضمن طلب الحجز
+message ReservationItem {
+  int64 product_id = 1;
+  int32 quantity = 2;
+}
+
+// طلب حجز مجموعة منتجات
+message ReserveStockRequest {
+  string reservation_id = 1;
+  repeated ReservationItem items = 2;
+}
+
+// نتيجة عملية الحجز
+message ReserveStockResponse {
+  bool success = 1;
+  ReservationStatus status = 2;
+  string message = 3;
+  string reservation_id = 4;
+}
+
+// حالات الحجز
+enum ReservationStatus {
+  RESERVATION_STATUS_UNSPECIFIED = 0;
+  RESERVED = 1;
+  INSUFFICIENT_STOCK = 2;
+  INVALID_REQUEST = 3;
+}
+
+// طلب إلغاء الحجز
+message ReleaseReservationRequest {
+  string reservation_id = 1;
+}
+
+// نتيجة إلغاء الحجز
+message ReleaseReservationResponse {
+  bool success = 1;
+  string message = 2;
+}
