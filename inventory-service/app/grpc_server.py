@@ -6,12 +6,42 @@ import grpc
 from inventory.v1 import inventory_pb2
 from inventory.v1 import inventory_pb2_grpc
 
-from app.inventory import release_reservation, reserve_stock
+from app.inventory import (
+    get_available_quantities,
+    release_reservation,
+    reserve_stock,
+)
 
 
 class InventoryService(
     inventory_pb2_grpc.InventoryServiceServicer
 ):
+
+    def GetStock(self, request, context):
+        try:
+            quantities = get_available_quantities(
+                list(request.product_ids)
+            )
+        except ValueError as error:
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                str(error),
+            )
+        except Exception:
+            context.abort(
+                grpc.StatusCode.UNAVAILABLE,
+                "Inventory storage is temporarily unavailable",
+            )
+
+        return inventory_pb2.GetStockResponse(
+            items=[
+                inventory_pb2.StockItem(
+                    product_id=product_id,
+                    available_quantity=quantity,
+                )
+                for product_id, quantity in quantities.items()
+            ]
+        )
 
     def ReserveStock(self, request, context):
 

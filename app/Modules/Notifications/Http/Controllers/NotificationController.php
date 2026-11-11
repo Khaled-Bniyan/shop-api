@@ -9,17 +9,21 @@ class NotificationController extends Controller
 {
     public function index(Request $request)
     {
-        $notifications = $request->user()->notifications->map(function ($notification) {
+        $notifications = $request->user()->notifications()->latest()->get()->map(function ($notification) {
             return [
+                'id' => $notification->id,
+                'type' => class_basename($notification->type),
                 'message' => $notification->data['message'] ?? 'إشعار جديد',
+                'data' => $notification->data,
+                'read_at' => $notification->read_at?->toISOString(),
                 'created_at' => $notification->created_at->format('Y-m-d H:i'),
             ];
         });
 
         return response()->json([
             'status' => 'success',
-            'message' => 'تم اضافة منتج  بنجاح',
-            'notifications' => $notifications
+            'message' => 'تم جلب الإشعارات بنجاح',
+            'notifications' => $notifications,
         ], 200);
     }
 

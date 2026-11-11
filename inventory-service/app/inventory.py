@@ -68,6 +68,39 @@ def _validate_request(reservation_id, items):
     return reservation_id, quantities
 
 
+def get_available_quantities(product_ids: list[int]) -> dict[int, int]:
+    if not isinstance(product_ids, list):
+        raise ValueError("Product IDs must be a list")
+
+    normalized_ids = sorted({
+        _positive_integer(product_id, "Product ID")
+        for product_id in product_ids
+    })
+
+    if any(product_id > MAX_BIGINT for product_id in normalized_ids):
+        raise ValueError("Product ID is too large")
+
+    if not normalized_ids:
+        return {}
+
+    with SessionLocal() as session:
+        products = (
+            session.query(InventoryItem)
+            .filter(InventoryItem.product_id.in_(normalized_ids))
+            .all()
+        )
+
+        quantities = {
+            product.product_id: product.available_quantity
+            for product in products
+        }
+
+    return {
+        product_id: quantities.get(product_id, 0)
+        for product_id in normalized_ids
+    }
+
+
 def _lock_reservation_id(session, reservation_id):
     session.execute(
         text(

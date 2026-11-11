@@ -35,6 +35,11 @@ class InventoryServiceStub:
         Args:
             channel: A grpc.Channel.
         """
+        self.GetStock = channel.unary_unary(
+                '/inventory.v1.InventoryService/GetStock',
+                request_serializer=inventory_dot_v1_dot_inventory__pb2.GetStockRequest.SerializeToString,
+                response_deserializer=inventory_dot_v1_dot_inventory__pb2.GetStockResponse.FromString,
+                _registered_method=True)
         self.ReserveStock = channel.unary_unary(
                 '/inventory.v1.InventoryService/ReserveStock',
                 request_serializer=inventory_dot_v1_dot_inventory__pb2.ReserveStockRequest.SerializeToString,
@@ -50,6 +55,13 @@ class InventoryServiceStub:
 class InventoryServiceServicer:
     """خدمة إدارة المخزون
     """
+
+    def GetStock(self, request, context):
+        """معرفة الكمية المتوفرة لمجموعة منتجات في طلب واحد
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def ReserveStock(self, request, context):
         """حجز جميع المنتجات في عملية واحدة
@@ -68,6 +80,11 @@ class InventoryServiceServicer:
 
 def add_InventoryServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'GetStock': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetStock,
+                    request_deserializer=inventory_dot_v1_dot_inventory__pb2.GetStockRequest.FromString,
+                    response_serializer=inventory_dot_v1_dot_inventory__pb2.GetStockResponse.SerializeToString,
+            ),
             'ReserveStock': grpc.unary_unary_rpc_method_handler(
                     servicer.ReserveStock,
                     request_deserializer=inventory_dot_v1_dot_inventory__pb2.ReserveStockRequest.FromString,
@@ -89,6 +106,33 @@ def add_InventoryServiceServicer_to_server(servicer, server):
 class InventoryService:
     """خدمة إدارة المخزون
     """
+
+    @staticmethod
+    def GetStock(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/inventory.v1.InventoryService/GetStock',
+            inventory_dot_v1_dot_inventory__pb2.GetStockRequest.SerializeToString,
+            inventory_dot_v1_dot_inventory__pb2.GetStockResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
 
     @staticmethod
     def ReserveStock(request,

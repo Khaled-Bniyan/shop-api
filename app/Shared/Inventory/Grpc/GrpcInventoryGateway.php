@@ -13,6 +13,37 @@ class GrpcInventoryGateway implements InventoryGateway
 {
     private ?InventoryServiceClient $client = null;
 
+    public function availableQuantities(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+
+        if ($productIds === []) {
+            return [];
+        }
+
+        try {
+            $call = $this->client()->getStock(
+                new GetStockRequest($productIds),
+                options: $this->callOptions(),
+            );
+        } catch (Throwable $exception) {
+            throw new InventoryServiceUnavailableException(
+                'Inventory service is temporarily unavailable. Please try again shortly.',
+                previous: $exception,
+            );
+        }
+
+        /** @var GetStockResponse $response */
+        $response = $this->wait($call);
+        $quantities = [];
+
+        foreach ($response->items as $item) {
+            $quantities[$item->productId] = $item->availableQuantity;
+        }
+
+        return $quantities;
+    }
+
     public function reserve(string $reservationId, array $items): void
     {
         $request = new ReserveStockRequest(

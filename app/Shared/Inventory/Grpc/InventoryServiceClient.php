@@ -7,6 +7,20 @@ use Grpc\UnaryCall;
 
 class InventoryServiceClient extends BaseStub
 {
+    public function getStock(
+        GetStockRequest $request,
+        array $metadata = [],
+        array $options = [],
+    ): UnaryCall {
+        return $this->_simpleRequest(
+            '/inventory.v1.InventoryService/GetStock',
+            $request,
+            [GetStockResponse::class, 'decode'],
+            $metadata,
+            $options,
+        );
+    }
+
     public function reserveStock(
         ReserveStockRequest $request,
         array $metadata = [],

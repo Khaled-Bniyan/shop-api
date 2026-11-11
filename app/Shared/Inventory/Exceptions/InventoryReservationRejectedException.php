@@ -4,6 +4,4 @@ namespace App\Shared\Inventory\Exceptions;
 
 use RuntimeException;
 
-class InventoryReservationRejectedException extends RuntimeException
-{
-}
+class InventoryReservationRejectedException extends RuntimeException {}

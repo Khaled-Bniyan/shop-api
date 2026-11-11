@@ -6,6 +6,10 @@ package inventory.v1;
 // خدمة إدارة المخزون
 service InventoryService {
 
+  // معرفة الكمية المتوفرة لمجموعة منتجات في طلب واحد
+  rpc GetStock(GetStockRequest)
+      returns (GetStockResponse);
+
   // حجز جميع المنتجات في عملية واحدة
   rpc ReserveStock(ReserveStockRequest)
       returns (ReserveStockResponse);
@@ -13,6 +17,22 @@ service InventoryService {
   // إلغاء حجز سابق عند الحاجة
   rpc ReleaseReservation(ReleaseReservationRequest)
       returns (ReleaseReservationResponse);
+}
+
+// طلب الكميات المتوفرة لمجموعة منتجات
+message GetStockRequest {
+  repeated int64 product_ids = 1;
+}
+
+// كمية منتج واحد
+message StockItem {
+  int64 product_id = 1;
+  int32 available_quantity = 2;
+}
+
+// الكميات المتوفرة؛ المنتج غير المسجل يعاد بكمية صفر
+message GetStockResponse {
+  repeated StockItem items = 1;
 }
 
 // منتج واحد ضمن طلب الحجز

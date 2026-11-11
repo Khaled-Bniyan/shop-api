@@ -20,8 +20,8 @@ def reserve(reservation_id: str):
                 reservation_id=reservation_id,
                 items=[
                     inventory_pb2.ReservationItem(
-                        product_id=1,
-                        quantity=4,
+                        product_id=9_000_001,
+                        quantity=1,
                     )
                 ],
             ),
@@ -44,8 +44,8 @@ def main() -> int:
         if response.success
     ]
     rejected = [
-        response
-        for _, response in results
+        (reservation_id, response)
+        for reservation_id, response in results
         if not response.success
     ]
 
@@ -53,22 +53,30 @@ def main() -> int:
         status = inventory_pb2.ReservationStatus.Name(response.status)
         print(f"{reservation_id}: {status} - {response.message}")
 
-    if len(successful) != 1 or len(rejected) != 1:
-        print("Race demo failed: expected one success and one rejection.")
-        return 1
-
-    winner_id, _ = successful[0]
     with grpc.insecure_channel("localhost:50051") as channel:
         stub = inventory_pb2_grpc.InventoryServiceStub(channel)
-        release = stub.ReleaseReservation(
-            inventory_pb2.ReleaseReservationRequest(
-                reservation_id=winner_id,
-            ),
-            timeout=5,
-        )
+        for reservation_id, _ in successful:
+            release = stub.ReleaseReservation(
+                inventory_pb2.ReleaseReservationRequest(
+                    reservation_id=reservation_id,
+                ),
+                timeout=5,
+            )
+            if not release.success:
+                print("Race demo failed: could not release a reservation.")
+                return 1
 
-    if not release.success:
-        print("Race demo failed: could not release the winning reservation.")
+    insufficient = [
+        response
+        for _, response in rejected
+        if response.status == inventory_pb2.INSUFFICIENT_STOCK
+    ]
+
+    if len(successful) != 1 or len(insufficient) != 1:
+        print(
+            "Race demo failed: expected one success and one "
+            "INSUFFICIENT_STOCK rejection."
+        )
         return 1
 
     print("Race demo passed: one reservation won; its stock was released.")

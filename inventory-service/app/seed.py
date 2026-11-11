@@ -11,6 +11,7 @@ def seed() -> None:
             products = {
                 1: 5,
                 2: 1,
+                9_000_001: 1,
             }
 
             for product_id, quantity in products.items():
