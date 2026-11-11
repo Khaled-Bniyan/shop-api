@@ -7,6 +7,7 @@ use App\Modules\Users\Http\Requests\LoginRequest;
 use App\Modules\Users\Http\Requests\RegisterRequest;
 use App\Modules\Users\Http\Resources\UserResource;
 use App\Modules\Users\Models\User;
+use App\Shared\Http\ApiErrorResponse;
 
 class AuthController extends Controller
 {
@@ -26,10 +27,7 @@ class AuthController extends Controller
         );
 
         if (! $token) {
-            return response()->json([
-                'message' => 'بيانات الدخول غير صحيحة',
-                'errors' => null,
-            ], 401);
+            return ApiErrorResponse::make('بيانات الدخول غير صحيحة', 401);
         }
 
         return $this->tokenResponse($token);
@@ -37,7 +35,9 @@ class AuthController extends Controller
 
     public function me()
     {
-        return new UserResource(auth('api')->user());
+        return (new UserResource(auth('api')->user()))
+            ->response()
+            ->setStatusCode(200);
     }
 
     public function logout()

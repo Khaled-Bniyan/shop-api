@@ -2,6 +2,7 @@
 
 namespace App\Shared\Http\Middleware;
 
+use App\Shared\Http\ApiErrorResponse;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -13,10 +14,10 @@ class RoleMiddleware
         $user = $request->user();
 
         if (! $user || ! in_array($user->role, $roles, true)) {
-            return response()->json([
-                'message' => 'غير مصرّح لك بتنفيذ هذه العملية',
-                'errors' => null,
-            ], 403);
+            return ApiErrorResponse::make(
+                'غير مصرّح لك بتنفيذ هذه العملية',
+                403,
+            );
         }
 
         return $next($request);

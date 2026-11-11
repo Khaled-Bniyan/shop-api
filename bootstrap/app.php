@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Http\ApiErrorResponse;
 use App\Shared\Http\Middleware\RoleMiddleware;
 use App\Shared\Http\Middleware\SecurityHeaders;
 use App\Shared\Inventory\Exceptions\InventoryReservationRejectedException;
@@ -10,6 +11,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -26,53 +28,65 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn (Request $request) => null);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->respond(function (Response $response) {
+            if (request()->is('api/*')) {
+                return SecurityHeaders::apply($response);
+            }
+
+            return $response;
+        });
+
         $exceptions->render(function (Throwable $e, Request $request) {
             if (! $request->is('api/*')) {
                 return null;
             }
 
             if ($e instanceof InventoryReservationRejectedException) {
-                return response()->json([
-                    'message' => $e->getMessage(),
-                    'errors' => ['inventory' => [$e->getMessage()]],
-                ], 422);
+                return ApiErrorResponse::make(
+                    'تعذر حجز الكمية المطلوبة من المخزون',
+                    422,
+                    ['inventory' => [$e->getMessage()]],
+                );
             }
 
             if ($e instanceof InventoryServiceUnavailableException) {
-                return response()->json([
-                    'message' => 'Inventory service is temporarily unavailable. Please try again shortly.',
-                    'errors' => null,
-                ], 503);
+                return ApiErrorResponse::make(
+                    'خدمة المخزون غير متاحة مؤقتاً، حاول مرة أخرى لاحقاً',
+                    503,
+                );
             }
 
             if ($e instanceof ValidationException) {
-                return response()->json([
-                    'message' => 'بيانات غير صالحة',
-                    'errors' => $e->errors(),
-                ], 422);
+                return ApiErrorResponse::make(
+                    'بيانات غير صالحة',
+                    422,
+                    $e->errors(),
+                );
             }
 
             if ($e instanceof AuthenticationException) {
-                return response()->json([
-                    'message' => 'يجب تسجيل الدخول',
-                    'errors' => null,
-                ], 401);
+                return ApiErrorResponse::make('يجب تسجيل الدخول', 401);
             }
 
             if ($e instanceof HttpExceptionInterface) {
                 $messages = [
                     403 => 'غير مصرّح لك بتنفيذ هذه العملية',
                     404 => 'المورد المطلوب غير موجود',
+                    405 => 'طريقة الطلب غير مسموحة',
                     429 => 'محاولات كثيرة، حاول لاحقاً',
                 ];
                 $status = $e->getStatusCode();
 
-                return response()->json([
-                    'message' => $messages[$status] ?? ($e->getMessage() ?: 'خطأ'),
-                    'errors' =>'يرجى الانتظار قليلا قبل اعادة المحاولة',
-                ], $status, $e->getHeaders());
+                return ApiErrorResponse::make(
+                    $messages[$status] ?? ($e->getMessage() ?: 'حدث خطأ في الطلب'),
+                    $status,
+                    headers: $e->getHeaders(),
+                );
             }
 
-            return null;
+            return ApiErrorResponse::make(
+                'حدث خطأ داخلي، حاول مرة أخرى لاحقاً',
+                500,
+            );
         });
     })->create();
