@@ -1,0 +1,944 @@
+{
+    "info": {
+        "name": "Shop API 2026 - Requirements One and Two",
+        "description": "توثيق المتطلبين الأول والثاني: JWT، المستخدمون، المنتجات والصور، التصنيفات، الطلبات، الإشعارات، الصلاحيات، الأخطاء الموحدة، ترويسات الأمان، تحديد محاولات الدخول، والتكامل مع خدمة المخزون المستقلة عبر gRPC. شغّل الطلبات بالترتيب بعد تشغيل Docker وتنفيذ migrations وseeding. المنتج رقم 1 مرتبط بكمية مخزون أولية مقدارها 5، والمنتج رقم 2 بكمية مقدارها 1. المنتج الجديد يبدأ بكمية صفر حتى تضاف كميته إلى خدمة المخزون. غيّر product_image_path إلى مسار صورة حقيقية قبل طلب رفع الصورة. جميع أخطاء API بالصيغة: { message: string, errors: object|null }. لاختبار توقف المخزون: نفّذ docker compose stop inventory-service، غيّر expect_inventory_unavailable إلى true، وشغّل طلب فحص تفاصيل المنتج، ثم أعد الخدمة. ولاختبار Race Condition على آخر قطعة: نفّذ docker compose exec inventory-service python demo_concurrent_reservation.py؛ يجب أن ينجح حجز واحد فقط وتفشل بقية الطلبات بنفاد المخزون.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "event": [
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "pm.test('Security headers are present', function () {",
+                    "    pm.response.to.have.header('X-Content-Type-Options', 'nosniff');",
+                    "    pm.response.to.have.header('X-Frame-Options', 'DENY');",
+                    "    pm.response.to.have.header('Referrer-Policy', 'no-referrer');",
+                    "    pm.response.to.have.header('Strict-Transport-Security');",
+                    "});",
+                    "",
+                    "if (pm.response.code >= 400) {",
+                    "    pm.test('Unified API error format', function () {",
+                    "        const body = pm.response.json();",
+                    "        pm.expect(body).to.have.all.keys('message', 'errors');",
+                    "        pm.expect(body.message).to.be.a('string').and.not.empty;",
+                    "        pm.expect(body.errors === null || (typeof body.errors === 'object' && !Array.isArray(body.errors))).to.be.true;",
+                    "    });",
+                    "}"
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8000/api/v1",
+            "type": "string"
+        },
+        {
+            "key": "admin_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "customer_a_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "customer_b_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "registered_customer_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "registered_customer_email",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "category_id",
+            "value": "1",
+            "type": "string"
+        },
+        {
+            "key": "product_id",
+            "value": "1",
+            "type": "string"
+        },
+        {
+            "key": "expect_inventory_unavailable",
+            "value": "false",
+            "type": "string"
+        },
+        {
+            "key": "order_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "notification_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "product_image_path",
+            "value": "C:/path/to/product.jpg",
+            "type": "string"
+        },
+        {
+            "key": "rate_limit_email",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "01 - Authentication and JWT",
+            "description": "التسجيل والدخول والملف الشخصي والخروج وإثبات إبطال JWT.",
+            "item": [
+                {
+                    "name": "01 - Register a new customer (201)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.collectionVariables.set('registered_customer_email', `postman-${Date.now()}@shop.test`);"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Customer is registered', () => pm.response.to.have.status(201));",
+                                    "const body = pm.response.json();",
+                                    "pm.expect(body).to.have.keys('access_token', 'token_type', 'expires_in');",
+                                    "pm.collectionVariables.set('registered_customer_token', body.access_token);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Postman Customer\",\n    \"email\": \"{{registered_customer_email}}\",\n    \"password\": \"password123\",\n    \"password_confirmation\": \"password123\"\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": "{{base_url}}/register",
+                        "description": "يسجل مستخدماً جديداً بدور customer تلقائياً ويحفظ JWT. البريد يتغير في كل تشغيل."
+                    }
+                },
+                {
+                    "name": "02 - View registered customer profile (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Profile belongs to the registered customer', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    pm.expect(pm.response.json().data.email).to.eql(pm.collectionVariables.get('registered_customer_email'));",
+                                    "    pm.expect(pm.response.json().data.role).to.eql('customer');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{registered_customer_token}}", "type": "string"}]},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/me"
+                    }
+                },
+                {
+                    "name": "03 - Logout registered customer (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Logout succeeds', () => pm.response.to.have.status(200));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{registered_customer_token}}", "type": "string"}]},
+                        "method": "POST",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/logout"
+                    }
+                },
+                {
+                    "name": "04 - Reuse invalidated token (401)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Invalidated JWT is rejected', () => pm.response.to.have.status(401));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{registered_customer_token}}", "type": "string"}]},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/me",
+                        "description": "يثبت أن رمز JWT لا يعمل بعد تسجيل الخروج."
+                    }
+                },
+                {
+                    "name": "05 - Login admin (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Admin login succeeds', () => pm.response.to.have.status(200));",
+                                    "pm.collectionVariables.set('admin_token', pm.response.json().access_token);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"admin@shop.test\",\n    \"password\": \"password123\"\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": "{{base_url}}/login"
+                    }
+                },
+                {
+                    "name": "06 - Login customer A (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Customer A login succeeds', () => pm.response.to.have.status(200));",
+                                    "pm.collectionVariables.set('customer_a_token', pm.response.json().access_token);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"a@shop.test\",\n    \"password\": \"password123\"\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": "{{base_url}}/login"
+                    }
+                },
+                {
+                    "name": "07 - Login customer B (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Customer B login succeeds', () => pm.response.to.have.status(200));",
+                                    "pm.collectionVariables.set('customer_b_token', pm.response.json().access_token);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"b@shop.test\",\n    \"password\": \"password123\"\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": "{{base_url}}/login"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "02 - Categories",
+            "description": "عرض التصنيفات التي تُستخدم في تصفية المنتجات.",
+            "item": [
+                {
+                    "name": "01 - List categories (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Categories are returned', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    pm.expect(pm.response.json()).to.be.an('array').that.is.not.empty;",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/categories"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "03 - Products and inventory availability",
+            "description": "إنشاء منتج، رفع صورة، العرض، التصفية حسب التصنيف، تقسيم الصفحات، والتحقق من صلاحية المسؤول.",
+            "item": [
+                {
+                    "name": "01 - Admin creates a catalog product (201)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Product is created', () => pm.response.to.have.status(201));",
+                                    "pm.test('A new product starts with zero inventory', () => pm.expect(pm.response.json().data.available_quantity).to.eql(0));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{admin_token}}", "type": "string"}]},
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Postman Laptop\",\n    \"description\": \"Product used by the complete collection flow\",\n    \"price\": 850,\n    \"category_id\": {{category_id}}\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": "{{base_url}}/products",
+                        "description": "ينشئ المنتج الأساسي ويحفظ معرّفه لاستخدامه في الطلب. في قاعدة جديدة يكون المنتج 1 المتوافق مع بيانات المخزون الأولية."
+                    }
+                },
+                {
+                    "name": "02 - Admin creates product with image (201)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Multipart product request succeeds', () => pm.response.to.have.status(201));",
+                                    "pm.test('Image URL is returned when a valid file is selected', function () {",
+                                    "    const imageUrl = pm.response.json().data.image_url;",
+                                    "    pm.expect(imageUrl === null || typeof imageUrl === 'string').to.be.true;",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{admin_token}}", "type": "string"}]},
+                        "method": "POST",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {"key": "name", "value": "Camera With Image", "type": "text"},
+                                {"key": "description", "value": "Multipart image upload example", "type": "text"},
+                                {"key": "price", "value": "125.50", "type": "text"},
+                                {"key": "category_id", "value": "{{category_id}}", "type": "text"},
+                                {"key": "image", "type": "file", "src": "{{product_image_path}}"}
+                            ]
+                        },
+                        "url": "{{base_url}}/products",
+                        "description": "غيّر product_image_path إلى ملف JPG أو PNG أو WEBP حقيقي، أو اختر الملف من واجهة Postman. الحد الأقصى 2MB."
+                    }
+                },
+                {
+                    "name": "03 - List products with pagination (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Products are paginated', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    const body = pm.response.json();",
+                                    "    pm.expect(body).to.have.keys('data', 'links', 'meta');",
+                                    "    pm.expect(body.data).to.be.an('array').that.is.not.empty;",
+                                    "    body.data.forEach(product => pm.expect(product.available_quantity).to.be.a('number'));",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/products?page=1"
+                    }
+                },
+                {
+                    "name": "04 - Product details include available stock (200/503)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const expectUnavailable = pm.collectionVariables.get('expect_inventory_unavailable') === 'true';",
+                                    "pm.test(expectUnavailable ? 'Inventory outage is mapped to 503' : 'Product details include stock', function () {",
+                                    "    pm.response.to.have.status(expectUnavailable ? 503 : 200);",
+                                    "    const body = pm.response.json();",
+                                    "    if (expectUnavailable) {",
+                                    "        pm.expect(body.message).to.be.a('string').that.is.not.empty;",
+                                    "        pm.expect(body.errors).to.eql(null);",
+                                    "    } else {",
+                                    "        pm.expect(body.data.available_quantity).to.be.a('number');",
+                                    "    }",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/products/{{product_id}}",
+                        "description": "في الوضع الطبيعي يعيد تفاصيل المنتج والكمية المتاحة من خدمة المخزون. لاختبار المهلة أو توقف الخدمة: أوقف inventory-service، واضبط expect_inventory_unavailable=true؛ يجب أن يعيد API حالة 503 بصيغة الخطأ الموحدة، ثم أعد تشغيل الخدمة وأعد المتغير إلى false."
+                    }
+                },
+                {
+                    "name": "05 - Filter products by category (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Category filter succeeds', () => pm.response.to.have.status(200));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/products?category_id={{category_id}}&page=1"
+                    }
+                },
+                {
+                    "name": "06 - Customer cannot create product (403)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Customer is forbidden from creating products', () => pm.response.to.have.status(403));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Forbidden Product\",\n    \"price\": 10,\n    \"category_id\": {{category_id}}\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": "{{base_url}}/products"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "04 - Orders and authorization",
+            "description": "إنشاء الطلبات وعرضها وتقسيمها وحماية ملكيتها وقصر تغيير الحالة على المسؤول.",
+            "item": [
+                {
+                    "name": "01 - Customer A creates order (201)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Order is created', () => pm.response.to.have.status(201));",
+                                    "const body = pm.response.json();",
+                                    "pm.expect(body.data.total).to.exist;",
+                                    "pm.collectionVariables.set('order_id', body.data.id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"items\": [\n        {\"product_id\": {{product_id}}, \"quantity\": 1}\n    ]\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": "{{base_url}}/orders"
+                    }
+                },
+                {
+                    "name": "02 - Customer A lists only own orders (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Customer order list is paginated', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    pm.expect(pm.response.json()).to.have.keys('data', 'links', 'meta');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/orders?page=1"
+                    }
+                },
+                {
+                    "name": "03 - Customer A views own order (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Owner can view order', () => pm.response.to.have.status(200));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/orders/{{order_id}}"
+                    }
+                },
+                {
+                    "name": "04 - Customer B cannot view A order (403)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Another customer is rejected', () => pm.response.to.have.status(403));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_b_token}}", "type": "string"}]},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/orders/{{order_id}}",
+                        "description": "الإثبات المطلوب في نص المشروع: مستخدم يحاول الوصول إلى طلب مستخدم آخر فيُرفض."
+                    }
+                },
+                {
+                    "name": "05 - Customer A cannot change status (403)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Customer cannot change order status', () => pm.response.to.have.status(403));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "PATCH",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {"mode": "raw", "raw": "{\n    \"status\": \"completed\"\n}", "options": {"raw": {"language": "json"}}},
+                        "url": "{{base_url}}/orders/{{order_id}}/status",
+                        "description": "الإثبات المطلوب في نص المشروع: الزبون يحاول تنفيذ عملية ليست من صلاحيته فيُرفض."
+                    }
+                },
+                {
+                    "name": "06 - Admin changes status to processing (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Admin can change status', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    pm.expect(pm.response.json().data.status).to.eql('processing');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{admin_token}}", "type": "string"}]},
+                        "method": "PATCH",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {"mode": "raw", "raw": "{\n    \"status\": \"processing\"\n}", "options": {"raw": {"language": "json"}}},
+                        "url": "{{base_url}}/orders/{{order_id}}/status"
+                    }
+                },
+                {
+                    "name": "07 - Admin changes status to completed (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Completed status is returned', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    pm.expect(pm.response.json().data.status).to.eql('completed');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{admin_token}}", "type": "string"}]},
+                        "method": "PATCH",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {"mode": "raw", "raw": "{\n    \"status\": \"completed\"\n}", "options": {"raw": {"language": "json"}}},
+                        "url": "{{base_url}}/orders/{{order_id}}/status"
+                    }
+                },
+                {
+                    "name": "08 - Admin lists all orders (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Admin order list succeeds', () => pm.response.to.have.status(200));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{admin_token}}", "type": "string"}]},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/orders?page=1"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "05 - Notifications",
+            "description": "إشعارات إضافة المنتجات وتغيير حالة الطلب وتعليم الإشعار كمقروء، مع حماية ملكية الإشعار.",
+            "item": [
+                {
+                    "name": "01 - Customer A lists notifications (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Notifications are returned', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    pm.expect(pm.response.json().notifications).to.be.an('array').that.is.not.empty;",
+                                    "});",
+                                    "pm.collectionVariables.set('notification_id', pm.response.json().notifications[0].id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/notifications"
+                    }
+                },
+                {
+                    "name": "02 - Customer A marks own notification as read (200)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Notification is marked as read', () => pm.response.to.have.status(200));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "PATCH",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/notifications/{{notification_id}}/read"
+                    }
+                },
+                {
+                    "name": "03 - Customer B cannot read A notification (404)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Notification ownership is protected', () => pm.response.to.have.status(404));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_b_token}}", "type": "string"}]},
+                        "method": "PATCH",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/notifications/{{notification_id}}/read"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "06 - Unified error responses",
+            "description": "أمثلة 401 و404 و405 و422. اختبار المجموعة العام يتحقق أن كل خطأ يحتوي message وerrors فقط.",
+            "item": [
+                {
+                    "name": "01 - Protected endpoint without JWT (401)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {"type": "text/javascript", "exec": ["pm.test('Authentication is required', () => pm.response.to.have.status(401));"]}
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "noauth"},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/products"
+                    }
+                },
+                {
+                    "name": "02 - Invalid registration data (422)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {"type": "text/javascript", "exec": ["pm.test('Validation errors are returned', () => pm.response.to.have.status(422));", "pm.expect(pm.response.json().errors).to.have.keys('name', 'email', 'password');"]}
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {"mode": "raw", "raw": "{\n    \"email\": \"not-an-email\"\n}", "options": {"raw": {"language": "json"}}},
+                        "url": "{{base_url}}/register"
+                    }
+                },
+                {
+                    "name": "03 - Missing order (404)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {"type": "text/javascript", "exec": ["pm.test('Missing resource returns 404', () => pm.response.to.have.status(404));"]}
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "GET",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/orders/999999"
+                    }
+                },
+                {
+                    "name": "04 - Invalid order data (422)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {"type": "text/javascript", "exec": ["pm.test('Invalid order returns 422', () => pm.response.to.have.status(422));"]}
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {"mode": "raw", "raw": "{\n    \"items\": []\n}", "options": {"raw": {"language": "json"}}},
+                        "url": "{{base_url}}/orders"
+                    }
+                },
+                {
+                    "name": "05 - Insufficient inventory (422)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {"type": "text/javascript", "exec": ["pm.test('Insufficient stock returns 422', () => pm.response.to.have.status(422));", "pm.expect(pm.response.json().errors).to.have.property('inventory');"]}
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {"mode": "raw", "raw": "{\n    \"items\": [\n        {\"product_id\": {{product_id}}, \"quantity\": 999}\n    ]\n}", "options": {"raw": {"language": "json"}}},
+                        "url": "{{base_url}}/orders"
+                    }
+                },
+                {
+                    "name": "06 - Unsupported HTTP method (405)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {"type": "text/javascript", "exec": ["pm.test('Unsupported method returns 405', () => pm.response.to.have.status(405));"]}
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_a_token}}", "type": "string"}]},
+                        "method": "PUT",
+                        "header": [{"key": "Accept", "value": "application/json"}],
+                        "url": "{{base_url}}/products"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "07 - Login rate limiting",
+            "description": "ست محاولات خاطئة متتالية للبريد العشوائي نفسه. المحاولات الخمس الأولى تعيد 401 والسادسة تعيد 429. يمكن تشغيل المجلد عدة مرات لأن البريد يتغير في الطلب الأول.",
+            "item": [
+                {
+                    "name": "01 - Wrong login attempt 1 (401)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {"type": "text/javascript", "exec": ["pm.collectionVariables.set('rate_limit_email', `rate-${Date.now()}@shop.test`);"]}
+                        },
+                        {
+                            "listen": "test",
+                            "script": {"type": "text/javascript", "exec": ["pm.test('Attempt 1 is rejected', () => pm.response.to.have.status(401));"]}
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key": "Accept", "value": "application/json"}, {"key": "Content-Type", "value": "application/json"}],
+                        "body": {"mode": "raw", "raw": "{\n    \"email\": \"{{rate_limit_email}}\",\n    \"password\": \"wrong-password\"\n}", "options": {"raw": {"language": "json"}}},
+                        "url": "{{base_url}}/login"
+                    }
+                },
+                {
+                    "name": "02 - Wrong login attempt 2 (401)",
+                    "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Attempt 2 is rejected', () => pm.response.to.have.status(401));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key": "Accept", "value": "application/json"}, {"key": "Content-Type", "value": "application/json"}],
+                        "body": {"mode": "raw", "raw": "{\n    \"email\": \"{{rate_limit_email}}\",\n    \"password\": \"wrong-password\"\n}", "options": {"raw": {"language": "json"}}},
+                        "url": "{{base_url}}/login"
+                    }
+                },
+                {
+                    "name": "03 - Wrong login attempt 3 (401)",
+                    "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Attempt 3 is rejected', () => pm.response.to.have.status(401));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key": "Accept", "value": "application/json"}, {"key": "Content-Type", "value": "application/json"}],
+                        "body": {"mode": "raw", "raw": "{\n    \"email\": \"{{rate_limit_email}}\",\n    \"password\": \"wrong-password\"\n}", "options": {"raw": {"language": "json"}}},
+                        "url": "{{base_url}}/login"
+                    }
+                },
+                {
+                    "name": "04 - Wrong login attempt 4 (401)",
+                    "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Attempt 4 is rejected', () => pm.response.to.have.status(401));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key": "Accept", "value": "application/json"}, {"key": "Content-Type", "value": "application/json"}],
+                        "body": {"mode": "raw", "raw": "{\n    \"email\": \"{{rate_limit_email}}\",\n    \"password\": \"wrong-password\"\n}", "options": {"raw": {"language": "json"}}},
+                        "url": "{{base_url}}/login"
+                    }
+                },
+                {
+                    "name": "05 - Wrong login attempt 5 (401)",
+                    "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Attempt 5 is rejected', () => pm.response.to.have.status(401));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key": "Accept", "value": "application/json"}, {"key": "Content-Type", "value": "application/json"}],
+                        "body": {"mode": "raw", "raw": "{\n    \"email\": \"{{rate_limit_email}}\",\n    \"password\": \"wrong-password\"\n}", "options": {"raw": {"language": "json"}}},
+                        "url": "{{base_url}}/login"
+                    }
+                },
+                {
+                    "name": "06 - Wrong login attempt 6 is rate limited (429)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Sixth attempt is rate limited', () => pm.response.to.have.status(429));",
+                                    "pm.test('Retry-After header is returned', () => pm.response.to.have.header('Retry-After'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key": "Accept", "value": "application/json"}, {"key": "Content-Type", "value": "application/json"}],
+                        "body": {"mode": "raw", "raw": "{\n    \"email\": \"{{rate_limit_email}}\",\n    \"password\": \"wrong-password\"\n}", "options": {"raw": {"language": "json"}}},
+                        "url": "{{base_url}}/login"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -18,6 +18,13 @@ On Windows PowerShell, use `copy .env.example .env` instead of `cp`.
 
 API base URL: `http://localhost:8000/api/v1`
 
+Web interface: `http://localhost:8000`
+
+The responsive Arabic interface uses the same API and includes registration
+and login, role-aware dashboards, product browsing and category filtering,
+shopping cart and order creation, order tracking, notifications, and the admin
+screens for product creation with image upload and order-status management.
+
 ## Test accounts (created by the seeder)
 
 | Role     | Email            | Password    |
@@ -34,7 +41,26 @@ docker compose exec app php artisan test
 
 ## API documentation
 
-Import `project_api_collection.json` into Postman and run it in order.
+Import `shop_api.postman_collection.json` into Postman and run its folders in
+order. The collection documents and tests authentication, products, image
+upload, category filtering, pagination, orders, notifications, authorization,
+the unified error response, security headers, and login rate limiting.
+
+Before running the multipart image request, set the collection variable
+`product_image_path` to a local JPG, PNG, or WEBP file. For a repeatable full
+run, start with freshly migrated and seeded Shop and Inventory databases.
+
+Every API error has the same shape:
+
+```json
+{
+  "message": "Human-readable error message",
+  "errors": null
+}
+```
+
+Validation and inventory errors use an object in `errors`; all other errors
+use `null`.
 
 ## Modules
 
@@ -58,6 +84,11 @@ inventory integration is the versioned gRPC contract at
 [`proto/inventory/V1/inventory.proto`](proto/inventory/V1/inventory.proto).
 The inventory port is internal to Docker Compose and is not published to the host.
 
+The contract exposes exactly the three inventory operations required by the
+project: `GetStock`, `ReserveStock`, and `ReleaseReservation`. Product list and
+detail responses include `available_quantity`; missing inventory records are
+reported as zero rather than inventing stock.
+
 When an order is created, the API first sends all requested quantities in one
 `ReserveStock` call. The order is created only after a successful reservation.
 The inventory service locks all relevant product rows in a consistent order,
@@ -68,8 +99,9 @@ same reservation; a failed Laravel database transaction also attempts to release
 An insufficient quantity returns HTTP `422` and no order is created. A gRPC
 deadline, unavailable service, or internal inventory failure returns HTTP `503`.
 Set `INVENTORY_GRPC_TIMEOUT_US` in `.env` to adjust the deadline (default:
-3 seconds). The inventory seed initializes product `1` with `5` units and
-product `2` with `1` unit for the demonstration.
+3 seconds). The Laravel and Inventory seeders coordinate demo products `1` and
+`2`, with quantities `5` and `1`. A dedicated inventory item `9000001` with one
+unit is reserved for the repeatable race-condition demonstration.
 
 ### Race-condition demonstration
 
@@ -79,6 +111,7 @@ After a teammate starts the stack, run this inside the inventory container:
 docker compose exec inventory-service python demo_concurrent_reservation.py
 ```
 
-It sends two simultaneous reservations of four units for product `1`. Exactly
-one succeeds, the other receives `INSUFFICIENT_STOCK`, and the winner is released
-at the end so the command is repeatable.
+It sends two simultaneous reservations for the single available unit of the
+dedicated demo item. Exactly one succeeds, the other receives
+`INSUFFICIENT_STOCK`, and every successful reservation is released at the end so
+the command is repeatable.
