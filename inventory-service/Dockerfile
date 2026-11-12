@@ -10,6 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY inventory ./inventory
-COPY grpc_client.py test_reservation.py demo_concurrent_reservation.py ./
+COPY grpc_client.py test_reservation.py demo_concurrent_reservation.py manage_stock.py ./
 
 CMD ["sh", "-c", "python -m app.seed && python -m app.migrate_constraints && python -m app.grpc_server"]

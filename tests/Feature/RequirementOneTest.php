@@ -7,6 +7,7 @@ use App\Modules\Products\Models\Product;
 use App\Modules\Users\Models\User;
 use App\Notifications\ProductCreatedNotification;
 use App\Shared\Inventory\Contracts\InventoryGateway;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -126,6 +127,39 @@ class RequirementOneTest extends TestCase
             ->assertOk();
 
         $this->assertNotNull($notification->refresh()->read_at);
+    }
+
+    public function test_demo_catalog_has_multiple_categories_and_only_one_seeded_image(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $productIds = [1, 2, 101, 102, 103, 104, 105, 106, 107, 108];
+        $products = Product::query()->whereIn('id', $productIds)->get();
+
+        $this->assertCount(10, $products);
+        $this->assertSame(5, Category::query()->count());
+        $this->assertSame(1, $products->whereNotNull('image_path')->count());
+        $this->assertSame(
+            'assets/products/smart-desk-lamp.png',
+            $products->firstWhere('id', 101)?->image_path,
+        );
+        $this->assertFileExists(
+            public_path('assets/products/smart-desk-lamp.png'),
+        );
+
+        $inventory = new FakeInventoryGateway;
+        $inventory->quantities[101] = 12;
+        $this->app->instance(InventoryGateway::class, $inventory);
+        $customer = User::query()->where('email', 'a@shop.test')->firstOrFail();
+
+        $this->actingAsUser($customer)
+            ->getJson('/api/v1/products/101')
+            ->assertOk()
+            ->assertJsonPath('data.available_quantity', 12)
+            ->assertJsonPath(
+                'data.image_url',
+                url('/assets/products/smart-desk-lamp.png'),
+            );
     }
 
     public function test_order_total_is_calculated_server_side_and_duplicate_lines_are_combined(): void
