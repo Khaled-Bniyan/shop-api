@@ -20,6 +20,9 @@ API base URL: `http://localhost:8000/api/v1`
 
 Web interface: `http://localhost:8000`
 
+For a complete Arabic presentation checklist, demo reset commands, and manual
+stock-management examples, see [`DEMO_GUIDE_AR.md`](DEMO_GUIDE_AR.md).
+
 The responsive Arabic interface uses the same API and includes registration
 and login, role-aware dashboards, product browsing and category filtering,
 shopping cart and order creation, order tracking, notifications, and the admin
@@ -99,9 +102,10 @@ same reservation; a failed Laravel database transaction also attempts to release
 An insufficient quantity returns HTTP `422` and no order is created. A gRPC
 deadline, unavailable service, or internal inventory failure returns HTTP `503`.
 Set `INVENTORY_GRPC_TIMEOUT_US` in `.env` to adjust the deadline (default:
-3 seconds). The Laravel and Inventory seeders coordinate demo products `1` and
-`2`, with quantities `5` and `1`. A dedicated inventory item `9000001` with one
-unit is reserved for the repeatable race-condition demonstration.
+3 seconds). The Laravel and Inventory seeders coordinate products `1`, `2`, and
+`101` through `108` across several categories. A dedicated inventory item
+`9000001` with one unit is reserved for the repeatable race-condition
+demonstration.
 
 ### Race-condition demonstration
 
